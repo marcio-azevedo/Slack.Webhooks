@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace Slack.Webhooks
 {
@@ -7,11 +8,21 @@ namespace Slack.Webhooks
     /// </summary>
     public class SlackMessage
     {
+        private string _text;
         private bool _markdown = true;
         /// <summary>
         /// This is the text that will be posted to the channel
         /// </summary>
-        public string Text { get; set; }
+        public string Text 
+        {  
+            get{ return _text; }
+            set{ _text = value; }
+        }
+        
+        public string EscapedText
+        {
+            set { _text = Regex.Unescape(value); }
+        }
         /// <summary>
         /// Optional override of destination channel
         /// </summary>
