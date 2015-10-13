@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Threading.Tasks;
 using RestSharp;
-using RestSharp.Extensions;
 using ServiceStack.Text;
+
+#if NET40
+using RestSharp.Extensions;
+using System.Threading.Tasks;
+#endif
 
 namespace Slack.Webhooks
 {
@@ -64,44 +67,51 @@ namespace Slack.Webhooks
             }
         }
 
-	    public Task<IRestResponse> PostAsync(SlackMessage slackMessage)
-	    {
-		    var request = new RestRequest(_webhookUri.PathAndQuery, Method.POST);
+        public bool PostToChannels(SlackMessage message, IEnumerable<string> channels)
+        {
+            return channels.DefaultIfEmpty(message.Channel)
+                    .Select(message.Clone)
+                    .Select(Post).All(r => r);
+        }
 
-		    request.AddParameter("payload", JsonSerializer.SerializeToString(slackMessage));
+#if NET40
+        public IEnumerable<Task<IRestResponse>> PostToChannelsAsync(SlackMessage message, IEnumerable<string> channels)
+        {
+            return channels.DefaultIfEmpty(message.Channel)
+                                .Select(message.Clone)
+                                .Select(PostAsync);
+        }
 
-		    return ExecuteTaskAsync(request);
-	    }
+        public Task<IRestResponse> PostAsync(SlackMessage slackMessage)
+        {
+            var request = new RestRequest(_webhookUri.PathAndQuery, Method.POST);
 
-	    public void PostToChannels(SlackMessage message, IEnumerable<string> channels)
-		{
-			var tasks = channels.DefaultIfEmpty(message.Channel)
-				.Select(message.Clone)
-				.Select(PostAsync).ToArray();
+            request.AddParameter("payload", JsonSerializer.SerializeToString(slackMessage));
 
-			Task.WaitAll(tasks);
-		}
+            return ExecuteTaskAsync(request);
+        }
 
-	    private Task<IRestResponse> ExecuteTaskAsync(IRestRequest request)
-		{
-			var taskCompletionSource = new TaskCompletionSource<IRestResponse>();
-			try
-			{
-				_restClient.ExecuteAsync(request, (response, _) =>
-				{
-					if (response.ErrorException != null)
-						taskCompletionSource.TrySetException(response.ErrorException);
-					else if (response.ResponseStatus != ResponseStatus.Completed)
-						taskCompletionSource.TrySetException(response.ResponseStatus.ToWebException());
-					else
-						taskCompletionSource.TrySetResult(response);
-				});
-			}
-			catch (Exception ex)
-			{
-				taskCompletionSource.TrySetException(ex);
-			}
-			return taskCompletionSource.Task;
-		}
+        private Task<IRestResponse> ExecuteTaskAsync(IRestRequest request)
+        {
+            var taskCompletionSource = new TaskCompletionSource<IRestResponse>();
+            try
+            {
+                _restClient.ExecuteAsync(request, (response, _) =>
+                {
+                    if (response.ErrorException != null)
+                        taskCompletionSource.TrySetException(response.ErrorException);
+                    else if (response.ResponseStatus != ResponseStatus.Completed)
+                        taskCompletionSource.TrySetException(response.ResponseStatus.ToWebException());
+                    else
+                        taskCompletionSource.TrySetResult(response);
+                });
+            }
+            catch (Exception ex)
+            {
+                taskCompletionSource.TrySetException(ex);
+            }
+            return taskCompletionSource.Task;
+        }
+#endif
     }
 }
