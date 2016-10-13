@@ -78,7 +78,7 @@ namespace Slack.Webhooks
             SimpleJson.CurrentJsonSerializerStrategy = new SnakeJsonSerializerStrategy();
             var request = new RestRequest(_webhookUri.PathAndQuery, Method.POST);
 
-            var payload = request.JsonSerializer.Serialize(slackMessage);
+            var payload = SimpleJson.SerializeObject(slackMessage, new SnakeJsonSerializerStrategy());
             request.AddParameter("payload", payload);
 
             return ExecuteTaskAsync(request);
